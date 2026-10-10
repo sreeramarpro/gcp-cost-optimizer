@@ -1,0 +1,94 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./data/optimizer.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model CloudResource {
+  id                  String         @id
+  resourceType        String         @default("COMPUTE_ENGINE_VM")
+  name                String
+  projectId           String
+  zoneOrRegion        String
+  machineType         String
+  status              String         // RUNNING, TERMINATED, STOPPED, SUSPENDED, PROVISIONING
+  labels              String         @default("{}") // JSON key-value pairs
+  cpuCount            Int            @default(2)
+  memoryMb            Int            @default(4096)
+  isProtected         Boolean        @default(false)
+  protectionReason    String?
+  estimatedHourlyCost Float          @default(0.0)
+  lastSyncedAt        DateTime       @default(now())
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  scheduleTargets     ScheduleTarget[]
+  executionLogs       ExecutionLog[]
+}
+
+model Schedule {
+  id               String           @id @default(uuid())
+  name             String
+  description      String?
+  cronStart        String?          // e.g. "0 8 * * 1-5" (08:00 Mon-Fri)
+  cronStop         String?          // e.g. "0 19 * * 1-5" (19:00 Mon-Fri)
+  timezone         String           @default("UTC")
+  action           String           // START_AND_STOP, STOP_ONLY, START_ONLY
+  isEnabled        Boolean          @default(true)
+  isDryRun         Boolean          @default(false)
+  
+  // Optional dynamic selector by label
+  targetLabelKey   String?          // e.g. "env"
+  targetLabelValue String?          // e.g. "dev"
+  
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  targets          ScheduleTarget[]
+  executionLogs    ExecutionLog[]
+}
+
+model ScheduleTarget {
+  id         String        @id @default(uuid())
+  scheduleId String
+  resourceId String
+  schedule   Schedule      @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  resource   CloudResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, resourceId])
+}
+
+model ProtectionPolicy {
+  id          String   @id @default(uuid())
+  policyType  String   // LABEL_MATCH, NAME_PREFIX
+  key         String?  // e.g. "env" or "protected"
+  value       String?  // e.g. "prod" or "true"
+  description String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model ExecutionLog {
+  id          String         @id @default(uuid())
+  scheduleId  String?
+  resourceId  String
+  action      String         // START, STOP
+  status      String         // SUCCESS, FAILED, SKIPPED_PROTECTED, DRY_RUN
+  message     String
+  errorDetail String?
+  triggeredBy String         // AUTOMATED_SCHEDULE, MANUAL_USER
+  durationMs  Int?
+  executedAt  DateTime       @default(now())
+
+  schedule    Schedule?      @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  resource    CloudResource  @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+}
+
+model SystemConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
