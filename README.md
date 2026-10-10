@@ -191,3 +191,5 @@ The adapter boundary is defined in `backend/src/adapters/base.adapter.ts`. To ad
 2. Implement `listResources()`, `startResource()`, and `stopResource()` using `@google-cloud/sql`.
 3. Register the adapter in `adapter.factory.ts`.
 All existing schedules, protection policies, audit logs, and cron runner routines will automatically apply to Cloud SQL instances with zero changes required to business logic!
+#   g c p - c o s t - o p t i m i z e r  
+ 
